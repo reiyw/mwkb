@@ -81,21 +81,19 @@ fn request_titles_partially(
     maxlag: i32,
 ) -> Result<(Vec<Title>, Option<String>), Error> {
     let limit = if limit > 500 { 500 } else { limit };
+    let query = &[
+        ("action", "query"),
+        ("list", "allpages"),
+        ("format", "json"),
+        ("utf8", "true"),
+        ("aplimit", &limit.to_string()),
+        ("apfrom", from.unwrap_or("")),
+        ("maxlag", &maxlag.to_string()),
+    ];
+    let client = reqwest::Client::new();
     for _ in 0..5 {
-        let url = reqwest::Url::parse_with_params(
-            url,
-            &[
-                ("action", "query"),
-                ("list", "allpages"),
-                ("format", "json"),
-                ("utf8", "true"),
-                ("aplimit", &limit.to_string()),
-                ("apfrom", from.unwrap_or("")),
-                ("maxlag", &maxlag.to_string()),
-            ],
-        )?;
         eprintln!("GET: {}", url);
-        let json: MWAllpagesApiResponse = reqwest::get(url)?.json()?;
+        let json: MWAllpagesApiResponse = client.get(url).query(query).send()?.json()?;
         match json.error {
             Some(e) => match &e.code[..] {
                 "maxlag" => {
