@@ -14,6 +14,7 @@ use std::{thread, time};
 
 use failure::Error;
 use regex::Regex;
+use std::cmp;
 
 #[derive(Serialize, Deserialize, Debug)]
 struct Title {
@@ -98,7 +99,7 @@ fn request_titles_partially(
         match json.error {
             Some(e) => match &e.code[..] {
                 "maxlag" => {
-                    let secs = parse_maxlag_waiting_time(&e.info);
+                    let secs = cmp::max(1, parse_maxlag_waiting_time(&e.info));
                     let dur = time::Duration::from_secs(secs);
                     eprintln!("maxlag error: retry after {} secs", secs);
                     thread::sleep(dur);
