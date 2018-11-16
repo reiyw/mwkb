@@ -8,13 +8,15 @@ extern crate reqwest;
 #[macro_use]
 extern crate serde_derive;
 
-use std::{thread, time};
 use std::cmp;
 use std::fs;
 use std::path::Path;
+use std::{thread, time};
 
 use failure::Error;
 use regex::Regex;
+
+pub mod util;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Title {
@@ -92,7 +94,6 @@ fn request_titles_partially(
     ];
     let client = reqwest::Client::new();
     for _ in 0..5 {
-        eprintln!("GET: {}", url);
         let json: MWAllpagesApiResponse = client.get(url).query(query).send()?.json()?;
         match json.error {
             Some(e) => match &e.code[..] {
@@ -106,7 +107,7 @@ fn request_titles_partially(
                 _ => return Err(format_err!("unexpected API error: {:?}", e)),
             },
             None => {
-                let titles = json
+                let titles: Vec<Title> = json
                     .query
                     .unwrap()
                     .allpages
@@ -117,6 +118,12 @@ fn request_titles_partially(
                         name: p.title,
                     })
                     .collect();
+                eprintln!(
+                    "retrieved {} titles: \"{}\" ... \"{}\"",
+                    titles.len(),
+                    titles.first().unwrap().name,
+                    titles.last().unwrap().name
+                );
                 let apcontinue = json._continue.map(|p| p.apcontinue);
                 return Ok((titles, apcontinue));
             }
@@ -155,15 +162,23 @@ pub fn retrieve_all_titles(titles: &mut Vec<Title>, url: &str) -> Result<(), Err
     let limit = 500;
     // recommended. see: https://www.mediawiki.org/wiki/Manual:Maxlag_parameter/ja
     let maxlag = 5;
-    let next_title = match titles.last() {
+    // for allocation
+    let mut next_title = match titles.last() {
         Some(title) => request_next_title(&title.name[..], url)?,
         None => None,
     };
-    let from = next_title.as_ref().map(|t| &**t);
+    let mut from = next_title.as_ref().map(String::as_str);
+    // wait 1 sec per each request
+    let interval = time::Duration::from_secs(1);
     loop {
-        let (partial_titles, from) = request_titles_partially(url, limit, from, maxlag)?;
+        let res = request_titles_partially(url, limit, from, maxlag)?;
+        let partial_titles = res.0;
         titles.extend(partial_titles);
-        if from.is_none() {
+        next_title = res.1;
+        if next_title.is_some() {
+            from = next_title.as_ref().map(String::as_str);
+            thread::sleep(interval);
+        } else {
             break;
         }
     }
