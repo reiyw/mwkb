@@ -1,5 +1,5 @@
 [package]
-name = "mediawiki-textextract"
+name = "mwkb"
 version = "0.1.0"
 authors = ["reiyw <reiyw.setuve@gmail.com>"]
 edition = "2018"

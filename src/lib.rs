@@ -8,16 +8,16 @@ extern crate reqwest;
 #[macro_use]
 extern crate serde_derive;
 
+use std::{thread, time};
+use std::cmp;
 use std::fs;
 use std::path::Path;
-use std::{thread, time};
 
 use failure::Error;
 use regex::Regex;
-use std::cmp;
 
 #[derive(Serialize, Deserialize, Debug)]
-struct Title {
+pub struct Title {
     id: u32,
     // see: https://www.mediawiki.org/wiki/Manual:Namespace/ja#%E7%B5%84%E3%81%BF%E8%BE%BC%E3%81%BF%E3%81%AE%E5%90%8D%E5%89%8D%E7%A9%BA%E9%96%93
     ns: i32,
@@ -125,11 +125,7 @@ fn request_titles_partially(
     Err(format_err!("retried 5 times but can't receive"))
 }
 
-fn request_markuped_text() -> Result<String, Error> {
-    Ok("O".to_string())
-}
-
-fn load_titles<P: AsRef<Path>>(filepath: P) -> Result<Vec<Title>, Error> {
+pub fn load_titles<P: AsRef<Path>>(filepath: P) -> Result<Vec<Title>, Error> {
     let mut rdr = csv::Reader::from_path(filepath)?;
     let mut titles = Vec::new();
     for res in rdr.deserialize() {
@@ -139,7 +135,7 @@ fn load_titles<P: AsRef<Path>>(filepath: P) -> Result<Vec<Title>, Error> {
     Ok(titles)
 }
 
-fn save_titles<P: AsRef<Path>>(titles: &Vec<Title>, filepath: P) -> Result<(), Error> {
+pub fn save_titles<P: AsRef<Path>>(titles: &Vec<Title>, filepath: P) -> Result<(), Error> {
     let mut wtr = csv::Writer::from_path(filepath)?;
     for title in titles {
         wtr.serialize(title)?;
@@ -155,7 +151,7 @@ fn request_next_title(title: &str, url: &str) -> Result<Option<String>, Error> {
 /// Populate parameter `titles` and return Result to save progress
 ///
 /// You can resume retrieving by passing existing titles.
-fn retrieve_all_titles(titles: &mut Vec<Title>, url: &str) -> Result<(), Error> {
+pub fn retrieve_all_titles(titles: &mut Vec<Title>, url: &str) -> Result<(), Error> {
     let limit = 500;
     // recommended. see: https://www.mediawiki.org/wiki/Manual:Maxlag_parameter/ja
     let maxlag = 5;
@@ -171,14 +167,6 @@ fn retrieve_all_titles(titles: &mut Vec<Title>, url: &str) -> Result<(), Error> 
             break;
         }
     }
-    Ok(())
-}
-
-fn main() -> Result<(), Error> {
-    let url = "https://minecraft.gamepedia.com/api.php";
-
-    // save titles when encountered some errors
-
     Ok(())
 }
 
