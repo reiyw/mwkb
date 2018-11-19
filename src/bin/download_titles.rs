@@ -9,6 +9,7 @@ use mwkb::*;
 
 fn main() -> Result<(), Error> {
     let args: Vec<String> = env::args().collect();
+    // TODO: main に余計な仕事をさせない
     let url = util::ensure_endpoint_url(&args[1])?;
     let data_dir = &args[2];
     let save_path = format!("{}/titles.csv", data_dir);

@@ -3,6 +3,7 @@ extern crate csv;
 extern crate failure;
 #[macro_use]
 extern crate lazy_static;
+extern crate parse_wiki_text;
 extern crate regex;
 extern crate reqwest;
 #[macro_use]
@@ -15,6 +16,7 @@ use failure::Error;
 use regex::Regex;
 
 pub mod util;
+mod parser;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Title {
