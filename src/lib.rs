@@ -8,10 +8,8 @@ extern crate reqwest;
 #[macro_use]
 extern crate serde_derive;
 
-use std::cmp;
-use std::fs;
+use std::{cmp, fs, thread, time};
 use std::path::Path;
-use std::{thread, time};
 
 use failure::Error;
 use regex::Regex;
@@ -116,8 +114,7 @@ fn request_titles_partially(
                         id: p.pageid,
                         ns: p.ns,
                         name: p.title,
-                    })
-                    .collect();
+                    }).collect();
                 eprintln!(
                     "retrieved {} titles: \"{}\" ... \"{}\"",
                     titles.len(),
@@ -167,16 +164,15 @@ pub fn retrieve_all_titles(titles: &mut Vec<Title>, url: &str) -> Result<(), Err
         Some(title) => request_next_title(&title.name[..], url)?,
         None => None,
     };
-    let mut from = next_title.as_ref().map(String::as_str);
     // wait 1 sec per each request
     let interval = time::Duration::from_secs(1);
     loop {
-        let res = request_titles_partially(url, limit, from, maxlag)?;
+        let res =
+            request_titles_partially(url, limit, next_title.as_ref().map(String::as_str), maxlag)?;
         let partial_titles = res.0;
         titles.extend(partial_titles);
         next_title = res.1;
         if next_title.is_some() {
-            from = next_title.as_ref().map(String::as_str);
             thread::sleep(interval);
         } else {
             break;

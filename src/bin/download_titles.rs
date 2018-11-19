@@ -1,3 +1,4 @@
+extern crate failure;
 extern crate mwkb;
 
 use std::env;
