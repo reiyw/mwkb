@@ -1,7 +1,12 @@
+use std::fs::File;
+use std::io::Write;
+use std::path::Path;
+
+use failure::Error;
 use parse_wiki_text::{Configuration, Node};
 
 #[derive(Serialize, Debug)]
-struct Doc {
+pub struct Doc {
     text: String,
     entities: Vec<Entity>,
 }
@@ -29,7 +34,7 @@ fn is_heading_should_break(nodes: &Vec<Node>) -> bool {
 }
 
 impl Doc {
-    fn parse(text: &str) -> Doc {
+    pub fn parse(text: &str) -> Doc {
         let result = Configuration::default().parse(text);
         let mut count = 0;
         let mut doc_text = String::new();
@@ -69,6 +74,12 @@ impl Doc {
             text: doc_text,
             entities,
         }
+    }
+
+    pub fn save<P: AsRef<Path>>(&self, filepath: P) -> Result<(), Error> {
+        let mut f = File::create(filepath)?;
+        f.write_all(serde_json::to_string(&self)?.as_bytes());
+        Ok(())
     }
 }
 
@@ -313,6 +324,7 @@ File:Pentavein.png|Five different ore veins.
         let doc = Doc::parse(text);
         eprintln!("{:#?}", doc);
         eprintln!("{}", doc.text);
+        eprintln!("{:#?}", serde_json::to_string_pretty(&doc));
         assert!(false);
     }
 
