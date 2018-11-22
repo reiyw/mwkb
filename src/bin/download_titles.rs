@@ -6,19 +6,20 @@ use std::env;
 use failure::Error;
 
 use mwkb::api::ensure_endpoint_api_url;
-use mwkb::title::*;
+use mwkb::data::Data;
+use mwkb::title::retrieve_all_titles;
 
 fn main() -> Result<(), Error> {
     let args: Vec<String> = env::args().collect();
     let url = ensure_endpoint_api_url(&args[1])?;
-    let data_dir = &args[2];
-    let save_path = format!("{}/titles.csv", data_dir);
-
-    eprintln!("retrieve titles from {}", &args[1]);
-
-    let mut titles: Vec<Title> = Vec::new();
+    let data = Data::new(&args[2]);
+    let mut titles = if data.title_file.exists() {
+        data.load_titles()?
+    } else {
+        Vec::new()
+    };
     let res = retrieve_all_titles(&mut titles, &url[..]);
-    save_titles(&titles, save_path)?;
+    data.save_titles(&titles)?;
 
     res
 }
