@@ -1,8 +1,8 @@
-use std::fs;
-use std::path::Path;
+use std::{thread, time};
 
 use failure::Error;
-use glob::glob;
+use indicatif::ProgressBar;
+use reqwest::Client;
 use url::Url;
 
 use data::Data;
@@ -25,10 +25,43 @@ pub fn ensure_endpoint_index_url(url: &str) -> Result<String, Error> {
     ))
 }
 
-pub fn retrieve_all_markuped_text(data_dir: &str) -> Result<(), Error> {
+pub fn retrieve_all_markuped_text(url: &str, data_dir: &str) -> Result<(), Error> {
     let data = Data::new(data_dir);
+    // already retrieved
     let ids = data.make_pageid_set_from_markuped_text_files()?;
+    // to retrieve
+    let titles = data.load_titles()?;
+    // cache
+    let client = reqwest::Client::new();
+    let pb = ProgressBar::new(titles.len() as u64);
+    for title in titles {
+        if !ids.contains(&title.id) {
+            let text = request_markuped_text(url, &title.name[..], &client)?;
+            data.save_markuped_text(title.id, &text[..])?;
+            thread::sleep(time::Duration::from_secs(1));
+        }
+        pb.inc(1)
+    }
+    pb.finish_with_message("done");
     Ok(())
+}
+
+fn request_markuped_text(url: &str, title: &str, client: &Client) -> Result<String, Error> {
+    let query = &[("action", "raw"), ("title", title), ("utf8", "true")];
+    for _ in 0..5 {
+        let mut res = client.get(url).query(query).send();
+        match res {
+            Ok(ref mut resp) => {
+                return Ok(resp.text()?);
+            }
+            Err(e) => {
+                eprintln!("unexpected error: {:?}", e);
+                eprintln!("retry after 1 sec...");
+                thread::sleep(time::Duration::from_secs(1));
+            }
+        }
+    }
+    Err(format_err!("retried 5 times but can't receive"))
 }
 
 #[cfg(test)]

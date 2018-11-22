@@ -6,10 +6,10 @@ use regex::Regex;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Title {
-    id: u32,
+    pub id: u32,
     // see: https://www.mediawiki.org/wiki/Manual:Namespace/ja#%E7%B5%84%E3%81%BF%E8%BE%BC%E3%81%BF%E3%81%AE%E5%90%8D%E5%89%8D%E7%A9%BA%E9%96%93
     ns: i32,
-    name: String,
+    pub name: String,
 }
 
 #[derive(Serialize, Deserialize, Debug)]

@@ -2,6 +2,7 @@ extern crate csv;
 #[macro_use]
 extern crate failure;
 extern crate glob;
+extern crate indicatif;
 #[macro_use]
 extern crate lazy_static;
 extern crate parse_wiki_text;

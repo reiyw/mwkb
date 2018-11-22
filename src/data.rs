@@ -1,5 +1,6 @@
 use std::collections::HashSet;
 use std::fs;
+use std::io::prelude::*;
 use std::path::{Path, PathBuf};
 
 use failure::Error;
@@ -104,6 +105,14 @@ impl Data {
 
     pub fn save_titles(&self, titles: &Vec<Title>) -> Result<(), Error> {
         save_titles(titles, &self.title_file)
+    }
+
+    pub fn save_markuped_text(&self, pageid: u32, text: &str) -> std::io::Result<()> {
+        let filename = format!("{}.{}", pageid, self.markuped_text_file_extension);
+        let filepath = self.markuped_text_dir.join(&filename[..]);
+        let mut f = fs::File::create(filepath)?;
+        f.write_all(text.as_bytes())?;
+        Ok(())
     }
 }
 
