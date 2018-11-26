@@ -1,9 +1,11 @@
 use std::fs::File;
-use std::io::Write;
-use std::path::Path;
+use std::io::prelude::*;
+use std::panic;
 
 use failure::Error;
 use parse_wiki_text::{Configuration, Node};
+
+use data::{Data, parse_pageid};
 
 #[derive(Serialize, Debug)]
 pub struct Doc {
@@ -29,58 +31,84 @@ fn collect_text<'a>(nodes: &Vec<Node<'a>>) -> Vec<&'a str> {
 }
 
 fn is_heading_should_break(nodes: &Vec<Node>) -> bool {
-    let t = collect_text(nodes)[0];
-    t == "References" || t == "History" || t == "Video" || t == "Gallery"
+    let texts = collect_text(nodes);
+    match texts.first() {
+        Some(t) => *t == "References" || *t == "History" || *t == "Video" || *t == "Gallery",
+        None => false,
+    }
 }
 
 impl Doc {
-    pub fn parse(text: &str) -> Doc {
-        let result = Configuration::default().parse(text);
-        let mut count = 0;
-        let mut doc_text = String::new();
-        let mut entities = Vec::new();
-        for node in result.nodes {
-            match node {
-                Node::Text { value, .. } => {
-                    count += value.len();
-                    doc_text.push_str(value);
-                }
-                Node::Link { target, text, .. } => {
-                    let start = count as u32;
-                    let mut repr = String::new();
-                    let inner_text = collect_text(&text);
-                    for val in inner_text {
-                        count += val.len();
-                        doc_text.push_str(val);
-                        repr.push_str(val);
+    pub fn parse(text: &str) -> Result<Doc, Error> {
+        let res = panic::catch_unwind(|| {
+            let mut count = 0;
+            let mut doc_text = String::new();
+            let mut entities = Vec::new();
+            let result = Configuration::default().parse(text);
+            for node in result.nodes {
+                match node {
+                    Node::Text { value, .. } => {
+                        count += value.len();
+                        doc_text.push_str(value);
                     }
-                    let end = count as u32;
-                    entities.push(Entity {
-                        start,
-                        end,
-                        repr,
-                        target: target.to_string(),
-                    })
+                    Node::Link { target, text, .. } => {
+                        let start = count as u32;
+                        let mut repr = String::new();
+                        let inner_text = collect_text(&text);
+                        for val in inner_text {
+                            count += val.len();
+                            doc_text.push_str(val);
+                            repr.push_str(val);
+                        }
+                        let end = count as u32;
+                        entities.push(Entity {
+                            start,
+                            end,
+                            repr,
+                            target: target.to_string(),
+                        })
+                    }
+                    Node::Heading { ref nodes, .. } if is_heading_should_break(nodes) => break,
+                    Node::ParagraphBreak { .. } | Node::Heading { .. } => {
+                        count += 1;
+                        doc_text.push_str("\n");
+                    }
+                    _ => (),
                 }
-                Node::Heading { ref nodes, .. } if is_heading_should_break(nodes) => break,
-                Node::ParagraphBreak { .. } | Node::Heading { .. } => {
-                    count += 1;
-                    doc_text.push_str("\n");
+            }
+            Doc {
+                text: doc_text,
+                entities,
+            }
+        });
+        match res {
+            Ok(doc) => Ok(doc),
+            Err(_) => Err(format_err!("parse failed"))
+        }
+    }
+}
+
+pub fn parse_all_markuped_text(data_dir: &str) -> Result<(), Error> {
+    let data = Data::new(data_dir);
+    for entry in data.markuped_text_files()? {
+        match entry {
+            Ok(path) => {
+                let pageid = parse_pageid(&path);
+                let mut file = File::open(path)?;
+                let mut text = String::new();
+                file.read_to_string(&mut text)?;
+                let res = Doc::parse(&text[..]);
+                match res {
+                    Ok(doc) => data.save_parsed_text(pageid, &doc)?,
+                    Err(_) => eprintln!("page {} parse failed", pageid),
                 }
-                _ => (),
+            }
+            Err(e) => {
+                eprintln!("{:?}", e);
             }
         }
-        Doc {
-            text: doc_text,
-            entities,
-        }
     }
-
-    pub fn save<P: AsRef<Path>>(&self, filepath: P) -> Result<(), Error> {
-        let mut f = File::create(filepath)?;
-        f.write_all(serde_json::to_string(&self)?.as_bytes());
-        Ok(())
-    }
+    Ok(())
 }
 
 #[cfg(test)]
@@ -321,7 +349,7 @@ File:Pentavein.png|Five different ore veins.
 [[tr:Cevher]]
 [[zh:矿石]]
 "#;
-        let doc = Doc::parse(text);
+        let doc = Doc::parse(text)?;
         eprintln!("{:#?}", doc);
         eprintln!("{}", doc.text);
         eprintln!("{:#?}", serde_json::to_string_pretty(&doc));
@@ -989,7 +1017,7 @@ File:SkeletonRiderGroup.png|[[Skeleton]]s spawned from a skeleton trap [[horse]]
 [[th:ชุดเกราะ]]
 [[zh:盔甲]]
 "#;
-        let doc = Doc::parse(text);
+        let doc = Doc::parse(text)?;
         eprintln!("{:#?}", doc);
         eprintln!("{}", doc.text);
         assert!(false);

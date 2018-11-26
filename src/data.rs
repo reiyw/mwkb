@@ -6,6 +6,7 @@ use std::path::{Path, PathBuf};
 use failure::Error;
 use glob::{glob, Paths, PatternError};
 
+use parser::Doc;
 use title::{load_titles, save_titles, Title};
 
 /// データ関連のパスを管理する
@@ -55,7 +56,7 @@ impl Data {
         }
     }
 
-    fn markuped_text_files(&self) -> Result<Paths, PatternError> {
+    pub fn markuped_text_files(&self) -> Result<Paths, PatternError> {
         let pattern = format!(
             "{}/*.{}",
             self.markuped_text_dir.to_str().unwrap(),
@@ -114,6 +115,19 @@ impl Data {
         f.write_all(text.as_bytes())?;
         Ok(())
     }
+
+    pub fn save_parsed_text(&self, pageid: u32, doc: &Doc) -> Result<(), Error> {
+        let filename = format!("{}.{}", pageid, self.parsed_text_file_extension);
+        let filepath = self.parsed_text_dir.join(&filename[..]);
+        let mut f = fs::File::create(filepath)?;
+        f.write_all(serde_json::to_string(doc)?.as_bytes())?;
+        Ok(())
+    }
+}
+
+pub fn parse_pageid(path: &Path) -> u32 {
+    let stem = path.file_stem().unwrap();
+    stem.to_str().unwrap().parse().unwrap()
 }
 
 #[cfg(test)]
