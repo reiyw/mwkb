@@ -91,10 +91,4 @@ mod tests {
         assert_eq!(ensure_endpoint_index_url(url_pre)?, url_expected);
         Ok(())
     }
-
-    #[test]
-    fn test() {
-        retrieve_all_markuped_text("2018-11-16_minecraft");
-        assert!(false);
-    }
 }
